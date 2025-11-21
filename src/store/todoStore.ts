@@ -374,6 +374,11 @@ export const todoStore = {
       console.log(
         `[todoStore] ✅ Initialized with ${initialData.todos.length} todos from /todos.json`
       );
+
+      // Force persist to localStorage immediately after loading from JSON
+      // This ensures first-time visitors have data in localStorage
+      persistState(db.deref());
+      console.log("[todoStore] 💾 Persisted initial data to localStorage");
     } else {
       console.log(
         `[todoStore] ℹ️ Using existing data from localStorage (${currentState.data.todos.length} todos)`
