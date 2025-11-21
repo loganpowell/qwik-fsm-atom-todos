@@ -12,7 +12,7 @@ export default extendConfig(baseConfig, () => {
     },
     plugins: [
       staticAdapter({
-        origin: "https://loganpowell.github.io",
+        origin: "https://loganpowell.github.io/qwik-fsm-atom-todos",
       }),
     ],
   };

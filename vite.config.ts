@@ -4,7 +4,7 @@ import { qwikCity } from "@builder.io/qwik-city/vite";
 
 export default defineConfig(() => {
   return {
-    base: "/qwik-fsm-atom-todos/",
+    // base: "/qwik-fsm-atom-todos/",
     plugins: [
       qwikCity(),
       qwikVite(/**{ devTools: { clickToSource: false } }**/),
