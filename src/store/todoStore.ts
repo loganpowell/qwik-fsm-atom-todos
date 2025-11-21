@@ -1,9 +1,5 @@
 import { defAtom } from "@thi.ng/atom";
-import {
-  initTodoFSM,
-  canEdit,
-  isEditing,
-} from "../machines/todoFSM";
+import { initTodoFSM, canEdit, isEditing } from "../machines/todoFSM";
 
 export interface Todo {
   id: string;
@@ -101,7 +97,8 @@ const initializeFSM = () => {
 
 // Utility: Ensure FSM is initialized
 const ensureFSM = () => {
-  if (!fsm) throw new Error("FSM not initialized. Call todoStore.initialize() first.");
+  if (!fsm)
+    throw new Error("FSM not initialized. Call todoStore.initialize() first.");
 };
 
 // Utility: Find todo by ID
@@ -125,24 +122,26 @@ export const todoStore = {
   // Initialize - MUST be called first on client
   initialize: async () => {
     console.log("[todoStore.initialize] Starting...");
-    
+
     // Detect dev mode
     const isDevMode = detectDevMode();
-    console.log(`[todoStore.initialize] Mode: ${isDevMode ? 'DEV' : 'SSG'}`);
-    
+    console.log(`[todoStore.initialize] Mode: ${isDevMode ? "DEV" : "SSG"}`);
+
     // Try to load from localStorage first
     let data = loadFromLocalStorage();
-    
+
     // If no localStorage data, load from /todos.json
     if (!data || data.todos.length === 0) {
-      console.log("[todoStore.initialize] No localStorage data, loading from /todos.json");
+      console.log(
+        "[todoStore.initialize] No localStorage data, loading from /todos.json"
+      );
       data = await loadFromServerJson();
       // Save to localStorage immediately
       saveToLocalStorage(data);
     } else {
       console.log("[todoStore.initialize] Using data from localStorage");
     }
-    
+
     // Update store
     db.swap((state) => ({
       ...state,
@@ -150,10 +149,10 @@ export const todoStore = {
       isDevMode,
       fsmState: "viewing",
     }));
-    
+
     // Initialize FSM
     initializeFSM();
-    
+
     console.log("[todoStore.initialize] Complete", {
       todosCount: data.todos.length,
       isDevMode,
@@ -164,33 +163,35 @@ export const todoStore = {
   enterEditMode: () => {
     ensureFSM();
     console.log("[todoStore.enterEditMode] Entering edit mode");
-    
+
     // Take snapshot for cancel
     const currentData = db.deref().data;
     db.resetIn(["editModeSnapshot"], deepClone(currentData));
-    
+
     fsm.enterEditMode();
   },
 
   exitEditMode: () => {
     ensureFSM();
     console.log("[todoStore.exitEditMode] Canceling - restoring snapshot");
-    
+
     // Restore from snapshot
     const snapshot = db.deref().editModeSnapshot;
     if (snapshot) {
       db.resetIn(["data"], snapshot);
       saveToLocalStorage(snapshot);
     }
-    
+
     db.resetIn(["editModeSnapshot"], null);
     fsm.exitEditMode();
   },
 
   save: () => {
     ensureFSM();
-    console.log("[todoStore.save] Saving to localStorage and exiting edit mode");
-    
+    console.log(
+      "[todoStore.save] Saving to localStorage and exiting edit mode"
+    );
+
     // Data is already in localStorage via autosave watch
     db.resetIn(["editModeSnapshot"], null);
     fsm.save();
@@ -199,15 +200,17 @@ export const todoStore = {
   commit: async () => {
     ensureFSM();
     const { data, isDevMode } = db.deref();
-    
+
     if (!isDevMode) {
-      console.log("[todoStore.commit] SSG mode - commit not available, using save instead");
+      console.log(
+        "[todoStore.commit] SSG mode - commit not available, using save instead"
+      );
       todoStore.save();
       return;
     }
-    
+
     console.log("[todoStore.commit] Dev mode - committing to server");
-    
+
     try {
       const response = await fetch("/api/save-todos", {
         method: "POST",
@@ -223,7 +226,7 @@ export const todoStore = {
     } catch (error) {
       console.error("[todoStore.commit] ❌ Commit failed:", error);
     }
-    
+
     // Always save to localStorage and exit edit mode
     db.resetIn(["editModeSnapshot"], null);
     fsm.commit();
@@ -250,7 +253,9 @@ export const todoStore = {
   toggleTodo: (id: string) => {
     ensureFSM();
     if (!canEdit(fsm.state)) {
-      console.warn("[todoStore.toggleTodo] Cannot toggle todo outside edit mode");
+      console.warn(
+        "[todoStore.toggleTodo] Cannot toggle todo outside edit mode"
+      );
       return;
     }
 
@@ -266,7 +271,9 @@ export const todoStore = {
   deleteTodo: (id: string) => {
     ensureFSM();
     if (!canEdit(fsm.state)) {
-      console.warn("[todoStore.deleteTodo] Cannot delete todo outside edit mode");
+      console.warn(
+        "[todoStore.deleteTodo] Cannot delete todo outside edit mode"
+      );
       return;
     }
 
@@ -278,7 +285,9 @@ export const todoStore = {
   updateTodoText: (id: string, text: string) => {
     ensureFSM();
     if (!canEdit(fsm.state)) {
-      console.warn("[todoStore.updateTodoText] Cannot update todo outside edit mode");
+      console.warn(
+        "[todoStore.updateTodoText] Cannot update todo outside edit mode"
+      );
       return;
     }
 
@@ -295,12 +304,12 @@ export const todoStore = {
     ensureFSM();
     return canEdit(fsm.state);
   },
-  
+
   isEditing: () => {
     ensureFSM();
     return isEditing(fsm.state);
   },
-  
+
   isDevMode: () => {
     return db.deref().isDevMode;
   },

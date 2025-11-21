@@ -2,9 +2,11 @@ import { defineConfig } from "vite";
 import { qwikVite } from "@builder.io/qwik/optimizer";
 import { qwikCity } from "@builder.io/qwik-city/vite";
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
   return {
-    // base: "/qwik-fsm-atom-todos/",
+    // Set base path for production (GitHub Pages deployment)
+    // In dev mode, use root path
+    base: mode === "production" ? "/qwik-fsm-atom-todos/" : "/",
     plugins: [
       qwikCity(),
       qwikVite(/**{ devTools: { clickToSource: false } }**/),
