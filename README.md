@@ -5,6 +5,7 @@ A minimal demonstration of the **FSM + Atom** state management pattern using Qwi
 ## 🎯 Purpose
 
 This demo showcases a lightweight alternative to XState + Zustand:
+
 - **javascript-state-machine** (2KB) - Simple FSM for state transitions
 - **@thi.ng/atom** (2KB) - Reactive state container with built-in path operations
 - **Total**: 4KB vs 18KB (78% reduction)
@@ -12,6 +13,7 @@ This demo showcases a lightweight alternative to XState + Zustand:
 ## 🏗️ Architecture
 
 ### Two-State FSM
+
 ```
 viewing ⟷ editing
 ```
@@ -38,16 +40,19 @@ viewing ⟷ editing
 ## 🚀 Getting Started
 
 ### Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### Run Development Server
+
 ```bash
 npm run dev
 ```
 
 This starts:
+
 - Vite dev server (port 5173) - UI
 - Express API server (port 3001) - Data persistence
 
@@ -107,28 +112,32 @@ toy-fsm-demo/
 ## 🔍 Key Features
 
 ### Cross-Tab Synchronization
+
 - localStorage changes trigger storage events
 - FSM reinitializes to match new state
 - Atom updates reactively
 - Guards prevent infinite loops
 
 ### Smart Persistence
+
 - Only persist in non-sync operations
 - Preserve FSM state across reloads
 - Server is source of truth on initialization
 
 ### Change Tracking
+
 ```typescript
 const calculateChanges = (): number => {
   const currentTodos = state.data.todos;
   const originalTodos = state.originalData.todos;
-  
+
   // Diff: new, modified, deleted todos
   return changedIds.size;
 };
 ```
 
 ### Type-Safe Path Operations
+
 ```typescript
 // @thi.ng/atom built-in methods
 db.resetIn(["data", "todos", todoIdx, "completed"], !todo.completed);
@@ -138,11 +147,13 @@ db.resetIn(["data", "todos"], [...todos, newTodo]);
 ## 🎓 Learning Points
 
 ### Why FSM Over XState?
+
 - Simpler API (just transitions and lifecycle hooks)
 - No complex hierarchies or parallel states
 - 2 states vs 5 (viewing, editing vs viewing, devMode_idle, devMode_editing, devMode_committing, devMode_clearing)
 
 ### Why Atom Over Zustand?
+
 - Built-in path operations (no manual getter/setter)
 - Watch-based persistence (more control than middleware)
 - Future-ready: `defHistory()` for undo/redo, `defView()` for computed values
@@ -151,6 +162,7 @@ db.resetIn(["data", "todos"], [...todos, newTodo]);
 ### Critical Patterns
 
 **1. Deep Clone for Snapshots**
+
 ```typescript
 onEnterEditing() {
   const currentData = store.getState().data;
@@ -162,6 +174,7 @@ onEnterEditing() {
 ```
 
 **2. Cross-Tab Sync Guard**
+
 ```typescript
 let isSyncingFromStorage = false;
 
@@ -172,10 +185,11 @@ db.addWatch("persist", (id, prev, curr) => {
 ```
 
 **3. FSM Reinitialization on Sync**
+
 ```typescript
 window.addEventListener("storage", (e) => {
   const newState = JSON.parse(e.newValue);
-  
+
   // CRITICAL: Reinitialize FSM before updating atom
   fsm = initTodoFSM(storeInterface, newState.fsmState);
   db.reset(newState);
@@ -192,15 +206,15 @@ window.addEventListener("storage", (e) => {
 
 ## 📊 Bundle Size Comparison
 
-| Library                  | Size  |
-|-------------------------|-------|
-| XState                  | 15KB  |
-| Zustand                 | 3KB   |
-| **Total (old)**         | **18KB** |
-| javascript-state-machine| 2KB   |
-| @thi.ng/atom           | 2KB   |
-| **Total (new)**         | **4KB** |
-| **Savings**            | **-14KB (78%)** |
+| Library                  | Size            |
+| ------------------------ | --------------- |
+| XState                   | 15KB            |
+| Zustand                  | 3KB             |
+| **Total (old)**          | **18KB**        |
+| javascript-state-machine | 2KB             |
+| @thi.ng/atom             | 2KB             |
+| **Total (new)**          | **4KB**         |
+| **Savings**              | **-14KB (78%)** |
 
 ## 🛠️ Development
 
