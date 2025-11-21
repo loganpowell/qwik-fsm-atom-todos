@@ -25,10 +25,27 @@ export const TodoApp = component$(() => {
   const fsmState = useSignal(state.fsmState);
   const todos = useSignal(state.data.todos || []);
   const changeCount = useSignal(state.changeCount);
-  const uncommittedCount = useSignal(todoStore.getUncommittedCount());
-  const canEdit = useSignal(todoStore.canEdit());
-  const isEditing = useSignal(todoStore.isEditing());
-  const canCommitToServerFile = useSignal(todoStore.canCommitToServerFile());
+
+  // Safe initialization for SSG - these will be updated by useVisibleTask$ on client
+  let initialUncommittedCount = 0;
+  let initialCanEdit = false;
+  let initialIsEditing = false;
+  let initialCanCommitToServerFile = false;
+
+  try {
+    initialUncommittedCount = todoStore.getUncommittedCount();
+    initialCanEdit = todoStore.canEdit();
+    initialIsEditing = todoStore.isEditing();
+    initialCanCommitToServerFile = todoStore.canCommitToServerFile();
+  } catch (e) {
+    // During SSG, store methods might fail - use safe defaults
+    console.warn("[TodoApp] Using safe defaults for SSG:", e);
+  }
+
+  const uncommittedCount = useSignal(initialUncommittedCount);
+  const canEdit = useSignal(initialCanEdit);
+  const isEditing = useSignal(initialIsEditing);
+  const canCommitToServerFile = useSignal(initialCanCommitToServerFile);
 
   // Helper to sync all signals from store state
   const syncSignalsFromStore = $(() => {
@@ -148,11 +165,12 @@ export const TodoApp = component$(() => {
 
         <div class="flex gap-2 items-center min-h-[42px]">
           <div class="flex gap-2 flex-1">
-            {fsmState.value === "viewing" && (
+            {fsmState.value === "viewing" ? (
               <>
                 <button
                   onClick$={handleEnterEditMode}
-                  class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 h-[42px]"
+                  class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 h-[42px] cursor-pointer"
+                  type="button"
                 >
                   Edit
                 </button>
@@ -162,22 +180,24 @@ export const TodoApp = component$(() => {
                   </div>
                 )}
               </>
-            )}
+            ) : null}
 
-            {fsmState.value === "editing" && (
+            {fsmState.value === "editing" ? (
               <>
                 {canCommitToServerFile.value ? (
                   <>
                     <button
                       onClick$={handleCommit}
                       disabled={uncommittedCount.value === 0}
-                      class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 h-[42px] text-sm whitespace-nowrap"
+                      class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 h-[42px] text-sm whitespace-nowrap cursor-pointer"
+                      type="button"
                     >
                       💾 Commit ({uncommittedCount.value})
                     </button>
                     <button
                       onClick$={handleCancel}
-                      class="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 h-[42px] text-sm whitespace-nowrap"
+                      class="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 h-[42px] text-sm whitespace-nowrap cursor-pointer"
+                      type="button"
                     >
                       Cancel
                     </button>
@@ -185,28 +205,31 @@ export const TodoApp = component$(() => {
                 ) : (
                   <button
                     onClick$={handleExitEditMode}
-                    class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[42px] text-sm whitespace-nowrap"
+                    class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[42px] text-sm whitespace-nowrap cursor-pointer"
+                    type="button"
                   >
                     💾 Save
                   </button>
                 )}
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Reset/Refresh buttons for debugging */}
           <div class="flex gap-2">
             <button
               onClick$={handleRefreshFromStorage}
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm h-[42px]"
+              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm h-[42px] cursor-pointer"
               title="Reload from localStorage"
+              type="button"
             >
               🔄 Refresh
             </button>
             <button
               onClick$={handleResetLocalStorage}
-              class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm h-[42px]"
+              class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm h-[42px] cursor-pointer"
               title="Clear localStorage and reload"
+              type="button"
             >
               🗑️ Reset
             </button>
@@ -234,7 +257,8 @@ export const TodoApp = component$(() => {
             />
             <button
               onClick$={handleAddTodo}
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[50px]"
+              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[50px] cursor-pointer"
+              type="button"
             >
               Add
             </button>
@@ -257,7 +281,7 @@ export const TodoApp = component$(() => {
                 checked={todo.completed}
                 onChange$={() => handleToggleTodo(todo.id)}
                 disabled={!canEdit.value}
-                class="w-5 h-5"
+                class="w-5 h-5 cursor-pointer"
               />
               <span
                 class={`flex-1 ${
@@ -269,7 +293,8 @@ export const TodoApp = component$(() => {
               {canEdit.value && (
                 <button
                   onClick$={() => handleDeleteTodo(todo.id)}
-                  class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                  class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
+                  type="button"
                 >
                   Delete
                 </button>
