@@ -9,18 +9,24 @@ This project is now configured for static site generation (SSG) deployment to Gi
 ### Development Mode (localhost)
 
 - Run: `npm run dev`
-- Initial todos loaded from Vite JSON import of `public/todos.json`
-- Changes are saved to:
-  - **localStorage** (for persistence across sessions)
-  - **Server file** (`public/todos.json` via API)
+- Initial todos loaded from `public/todos.json` via fetch
+- **Edit Mode Actions**:
+  - **"Save to Browser"** button: Saves changes to localStorage only (quick save)
+  - **"Commit to Server"** button: Saves changes to both:
+    - **localStorage** (for browser persistence)
+    - **Server file** (`public/todos.json` via API)
+  - **"Cancel"** button: Discards all changes and exits edit mode
 
 ### Production/SSG Mode (GitHub Pages)
 
-- Initial todos loaded from Vite JSON import (bundled at build time)
+- Initial todos loaded from `public/todos.json` (static file served by GitHub Pages)
 - **Editing is fully enabled** - users can add, edit, delete todos
-- Changes are saved to **localStorage only** (browser storage)
-- The server file (`public/todos.json`) is read-only (cannot be updated)
+- **Edit Mode Actions**:
+  - **"Save"** button: Saves changes to **localStorage only**
+  - **"Cancel"** button: Discards all changes and exits edit mode
+  - Server file (`public/todos.json`) is read-only (cannot be updated)
 - Each user's edits are private to their browser
+- Changes persist across browser sessions via localStorage
 
 ## File Structure
 

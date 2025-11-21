@@ -25,6 +25,7 @@ export const TodoApp = component$(() => {
   const fsmState = useSignal(state.fsmState);
   const todos = useSignal(state.data.todos || []);
   const changeCount = useSignal(state.changeCount);
+  const uncommittedCount = useSignal(todoStore.getUncommittedCount());
   const canEdit = useSignal(todoStore.canEdit());
   const isEditing = useSignal(todoStore.isEditing());
   const canPersistToServer = useSignal(todoStore.canPersistToServer());
@@ -43,6 +44,7 @@ export const TodoApp = component$(() => {
       fsmState.value = initialState.fsmState;
       todos.value = initialState.data.todos || [];
       changeCount.value = initialState.changeCount;
+      uncommittedCount.value = todoStore.getUncommittedCount();
       canEdit.value = todoStore.canEdit();
       isEditing.value = todoStore.isEditing();
       canPersistToServer.value = todoStore.canPersistToServer();
@@ -52,6 +54,7 @@ export const TodoApp = component$(() => {
         fsmState.value = state.fsmState;
         todos.value = state.data.todos || [];
         changeCount.value = state.changeCount;
+        uncommittedCount.value = todoStore.getUncommittedCount();
         canEdit.value = todoStore.canEdit();
         isEditing.value = todoStore.isEditing();
         canPersistToServer.value = todoStore.canPersistToServer();
@@ -70,6 +73,10 @@ export const TodoApp = component$(() => {
   // Wrapped actions for Qwik serialization
   const handleEnterEditMode = $(() => {
     todoStore.enterEditMode();
+  });
+
+  const handleExitEditMode = $(() => {
+    todoStore.exitAndKeepChanges();
   });
 
   const handleCancel = $(() => {
@@ -153,7 +160,7 @@ export const TodoApp = component$(() => {
                 </button>
                 {!canPersistToServer.value && (
                   <div class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded h-[42px] flex items-center text-sm">
-                    ℹ️ SSG mode: Changes save to browser only
+                    ℹ️ SSG mode: Changes auto-save to browser
                   </div>
                 )}
               </>
@@ -161,19 +168,30 @@ export const TodoApp = component$(() => {
 
             {fsmState.value === "editing" && (
               <>
-                <button
-                  onClick$={handleCommit}
-                  disabled={changeCount.value === 0}
-                  class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 h-[42px]"
-                >
-                  💾 Commit ({changeCount.value})
-                </button>
-                <button
-                  onClick$={handleCancel}
-                  class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 h-[42px]"
-                >
-                  Cancel
-                </button>
+                {canPersistToServer.value ? (
+                  <>
+                    <button
+                      onClick$={handleCommit}
+                      disabled={uncommittedCount.value === 0}
+                      class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 h-[42px] text-sm whitespace-nowrap"
+                    >
+                      � Commit ({uncommittedCount.value})
+                    </button>
+                    <button
+                      onClick$={handleCancel}
+                      class="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 h-[42px] text-sm whitespace-nowrap"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick$={handleExitEditMode}
+                    class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[42px] text-sm whitespace-nowrap"
+                  >
+                    Exit Edit Mode
+                  </button>
+                )}
               </>
             )}
           </div>

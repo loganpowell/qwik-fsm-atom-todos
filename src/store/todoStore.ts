@@ -3,7 +3,7 @@ import {
   initTodoFSM,
   canEdit,
   isEditing,
-  canPersistToServer,
+  getUncommittedCount,
 } from "../machines/todoFSM";
 
 export interface Todo {
@@ -18,9 +18,9 @@ export interface TodoData {
 
 export interface TodoStoreState {
   data: TodoData;
-  originalData: Partial<TodoData>;
+  originalData: Partial<TodoData>; // Snapshot for unsaved changes
   fsmState: string;
-  changeCount: number;
+  changeCount: number; // Changes since last save
 }
 
 let fsm: any = null;
@@ -248,13 +248,22 @@ export const todoStore = {
     }
     fsm.exitEditMode();
   },
+  exitAndKeepChanges: () => {
+    ensureFSM();
+    console.log(
+      "💾 Exiting edit mode (changes already saved to localStorage)..."
+    );
+    // Changes are already persisted via watch - just transition to viewing
+    // Use save transition which exits to viewing
+    fsm.save();
+  },
   commit: async () => {
     ensureFSM();
     const data = db.deref().data;
 
     try {
       // Only save to server file in dev mode (localhost)
-      if (canPersistToServer()) {
+      if ((fsm as any).isDev) {
         console.log("💾 Committing to server file and localStorage...");
         try {
           const response = await fetch("/api/save-todos", {
@@ -289,6 +298,16 @@ export const todoStore = {
       console.error("❌ Commit failed:", error);
       throw error;
     }
+  },
+
+  // Save: Just save to localStorage (SSG mode)
+  save: () => {
+    ensureFSM();
+    console.log("💾 Saving to localStorage...");
+
+    // localStorage is already updated via the persist watch
+    // Just transition FSM state back to viewing
+    fsm.save();
   },
 
   // Todo operations using atom's built-in path methods
@@ -349,8 +368,12 @@ export const todoStore = {
     ensureFSM();
     return isEditing(fsm.state);
   },
-  canPersistToServer: () => canPersistToServer(),
+  canPersistToServer: () => {
+    ensureFSM();
+    return (fsm as any).isDev ?? false;
+  },
   getChangeCount: () => db.deref().changeCount,
+  getUncommittedCount: () => getUncommittedCount(), // Delegate to FSM
 
   // Initialize store - load initial todos from public JSON if no localStorage data
   initialize: async () => {
