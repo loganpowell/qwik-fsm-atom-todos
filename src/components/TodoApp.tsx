@@ -156,7 +156,7 @@ export const TodoApp = component$(() => {
                   onClick$={handleEnterEditMode}
                   class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 h-[42px]"
                 >
-                  Enter Edit Mode
+                  Edit
                 </button>
                 {!canCommitToServerFile.value && (
                   <div class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded h-[42px] flex items-center text-sm">
@@ -175,7 +175,7 @@ export const TodoApp = component$(() => {
                       disabled={uncommittedCount.value === 0}
                       class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 h-[42px] text-sm whitespace-nowrap"
                     >
-                      💾 Commit to File ({uncommittedCount.value})
+                      💾 Commit ({uncommittedCount.value})
                     </button>
                     <button
                       onClick$={handleCancel}
