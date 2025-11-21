@@ -1,0 +1,44 @@
+{
+  "name": "toy-fsm-demo",
+  "version": "1.0.0",
+  "description": "Minimal FSM + @thi.ng/atom pattern demo with Qwik",
+  "type": "module",
+  "engines": {
+    "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
+  },
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm:dev:vite\" \"npm:dev:api\"",
+    "dev:vite": "vite --mode ssr",
+    "dev:api": "tsx server.ts",
+    "build": "qwik build",
+    "build.static": "vite build --config adapters/static/vite.config.ts && cp dist/.nojekyll dist/index.html dist/404.html 2>/dev/null || :",
+    "preview": "vite preview",
+    "preview.static": "vite preview --outDir dist",
+    "deploy": "npm run build.static",
+    "fmt": "prettier --write .",
+    "lint": "eslint \"src/**/*.ts*\""
+  },
+  "dependencies": {
+    "@builder.io/qwik": "^1.17.2",
+    "@builder.io/qwik-city": "^1.17.2",
+    "@thi.ng/atom": "^5.3.10",
+    "javascript-state-machine": "^3.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/node": "20.19.0",
+    "autoprefixer": "^10.4.22",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "postcss": "^8.5.6",
+    "prettier": "3.6.2",
+    "tailwindcss": "^4.1.17",
+    "tsx": "^4.20.6",
+    "typescript": "5.4.5",
+    "vite": "6.0.7"
+  }
+}
