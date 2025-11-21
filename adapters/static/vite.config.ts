@@ -4,7 +4,7 @@ import { staticAdapter } from "@builder.io/qwik-city/adapters/static/vite";
 
 export default extendConfig(baseConfig, () => {
   return {
-    // base: "/qwik-fsm-atom-todos/",
+    base: "/qwik-fsm-atom-todos/",
     build: {
       ssr: true,
       rollupOptions: {

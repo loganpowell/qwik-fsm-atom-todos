@@ -1,6 +1,9 @@
 // FSM for managing Todo app state
 import StateMachine from "javascript-state-machine";
 
+// Utility: Deep clone an object
+const deepClone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
+
 let storeInstance: any = null;
 let committedSnapshot: any = null; // FSM-owned snapshot of last committed state
 
@@ -47,7 +50,7 @@ const loadCommittedSnapshot = () => {
 };
 
 // Detect if we're in dev mode (with API server) vs SSG/production mode
-const isDevMode = () => {
+export const isDevMode = () => {
   if (typeof window === "undefined") return false;
   // In dev mode, Vite sets import.meta.env.DEV to true
   // In production/SSG build, it's false
@@ -93,14 +96,14 @@ export const initTodoFSM = (store: any, initialState?: string) => {
         // CRITICAL: Deep clone to prevent mutations affecting the snapshot
         storeInstance.setState({
           fsmState: this.state,
-          originalData: JSON.parse(JSON.stringify(currentData)),
+          originalData: deepClone(currentData),
           changeCount: 0,
         });
 
         // FSM owns the committed snapshot - create it on first edit session
         // After that, it persists across edit sessions until manually cleared
         if (!committedSnapshot) {
-          committedSnapshot = JSON.parse(JSON.stringify(currentData));
+          committedSnapshot = deepClone(currentData);
           persistCommittedSnapshot(); // Save to localStorage
           console.log("[FSM.onEnterEditing] Created initial committedSnapshot");
         }
@@ -122,7 +125,7 @@ export const initTodoFSM = (store: any, initialState?: string) => {
       onCommit(lifecycle: any) {
         const currentData = storeInstance.getState().data;
         // Update committed snapshot (FSM-owned) before transitioning
-        committedSnapshot = JSON.parse(JSON.stringify(currentData));
+        committedSnapshot = deepClone(currentData);
         persistCommittedSnapshot(); // Save to localStorage
 
         console.log(
@@ -133,7 +136,7 @@ export const initTodoFSM = (store: any, initialState?: string) => {
         // Update state
         storeInstance.setState({
           fsmState: this.state,
-          originalData: JSON.parse(JSON.stringify(currentData)),
+          originalData: deepClone(currentData),
           changeCount: 0,
         });
       },
@@ -198,36 +201,13 @@ export const isFSMInDevMode = (fsm: any): boolean => {
 
 // FSM-owned function to calculate uncommitted changes
 export const getUncommittedCount = (): number => {
-  // console.log(
-  //   "[FSM.getUncommittedCount] Called. storeInstance exists:",
-  //   !!storeInstance,
-  //   "committedSnapshot exists:",
-  //   !!committedSnapshot
-  // );
-
   if (!storeInstance || !committedSnapshot) {
-    // console.log("[FSM.getUncommittedCount] Returning 0 - missing dependencies");
     return 0;
   }
 
   const currentData = storeInstance.getState().data;
   const currentTodos = currentData.todos || [];
   const committedTodos = committedSnapshot.todos || [];
-
-  // console.log(
-  //   "[FSM.getUncommittedCount] current todos:",
-  //   currentTodos.length,
-  //   "committed todos:",
-  //   committedTodos.length
-  // );
-  // console.log(
-  //   "[FSM.getUncommittedCount] current IDs:",
-  //   currentTodos.map((t: any) => t.id)
-  // );
-  // console.log(
-  //   "[FSM.getUncommittedCount] committed IDs:",
-  //   committedTodos.map((t: any) => t.id)
-  // );
 
   const changedIds = new Set<string>();
   const currentMap = new Map(currentTodos.map((t: any) => [t.id, t]));
@@ -241,12 +221,6 @@ export const getUncommittedCount = (): number => {
       currentTodo.text !== committedTodo.text ||
       currentTodo.completed !== committedTodo.completed
     ) {
-      // console.log(
-      //   "[FSM.getUncommittedCount] Change detected:",
-      //   currentTodo.id,
-      //   "reason:",
-      //   !committedTodo ? "new" : "modified"
-      // );
       changedIds.add(currentTodo.id);
     }
   });
@@ -254,14 +228,9 @@ export const getUncommittedCount = (): number => {
   // Check for deletions
   committedTodos.forEach((committedTodo: any) => {
     if (!currentMap.has(committedTodo.id)) {
-      // console.log(
-      //   "[FSM.getUncommittedCount] Deletion detected:",
-      //   committedTodo.id
-      // );
       changedIds.add(committedTodo.id);
     }
   });
 
-  // console.log("[FSM.getUncommittedCount] Final result:", changedIds.size);
   return changedIds.size;
 };

@@ -162,6 +162,12 @@ const ensureFSM = () => {
   if (!fsm) throw new Error("FSM not initialized");
 };
 
+// Utility: Generic FSM state query wrapper
+const queryFSM = <T>(fn: () => T): T => {
+  ensureFSM();
+  return fn();
+};
+
 // Utility: Guard edit mode operations
 const guardEditMode = (operation: string): boolean => {
   ensureFSM();
@@ -352,18 +358,9 @@ export const todoStore = {
   },
 
   // State queries
-  canEdit: () => {
-    ensureFSM();
-    return canEdit(fsm.state);
-  },
-  isEditing: () => {
-    ensureFSM();
-    return isEditing(fsm.state);
-  },
-  canCommitToServerFile: () => {
-    ensureFSM();
-    return (fsm as any).isDev ?? false;
-  },
+  canEdit: () => queryFSM(() => canEdit(fsm.state)),
+  isEditing: () => queryFSM(() => isEditing(fsm.state)),
+  canCommitToServerFile: () => queryFSM(() => (fsm as any).isDev ?? false),
   getChangeCount: () => db.deref().changeCount,
   getUncommittedCount: () => getUncommittedCount(), // Delegate to FSM
 

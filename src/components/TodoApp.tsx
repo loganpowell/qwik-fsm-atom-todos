@@ -30,6 +30,18 @@ export const TodoApp = component$(() => {
   const isEditing = useSignal(todoStore.isEditing());
   const canCommitToServerFile = useSignal(todoStore.canCommitToServerFile());
 
+  // Helper to sync all signals from store state
+  const syncSignalsFromStore = $(() => {
+    const state = todoStore.deref();
+    fsmState.value = state.fsmState;
+    todos.value = state.data.todos || [];
+    changeCount.value = state.changeCount;
+    uncommittedCount.value = todoStore.getUncommittedCount();
+    canEdit.value = todoStore.canEdit();
+    isEditing.value = todoStore.isEditing();
+    canCommitToServerFile.value = todoStore.canCommitToServerFile();
+  });
+
   // Subscribe to store changes
   // Only run on client (not during SSR/SSG)
   // eslint-disable-next-line qwik/no-use-visible-task
@@ -39,25 +51,11 @@ export const TodoApp = component$(() => {
       await todoStore.initialize();
 
       // Initial sync: Update signals with current store state on mount
-      const initialState = todoStore.deref();
-
-      fsmState.value = initialState.fsmState;
-      todos.value = initialState.data.todos || [];
-      changeCount.value = initialState.changeCount;
-      uncommittedCount.value = todoStore.getUncommittedCount();
-      canEdit.value = todoStore.canEdit();
-      isEditing.value = todoStore.isEditing();
-      canCommitToServerFile.value = todoStore.canCommitToServerFile();
+      await syncSignalsFromStore();
 
       // Subscribe to future changes
-      const unsubscribe = todoStore.subscribe((state) => {
-        fsmState.value = state.fsmState;
-        todos.value = state.data.todos || [];
-        changeCount.value = state.changeCount;
-        uncommittedCount.value = todoStore.getUncommittedCount();
-        canEdit.value = todoStore.canEdit();
-        isEditing.value = todoStore.isEditing();
-        canCommitToServerFile.value = todoStore.canCommitToServerFile();
+      const unsubscribe = todoStore.subscribe(async () => {
+        await syncSignalsFromStore();
       });
 
       // Note: Storage event listener is now handled in the store itself
