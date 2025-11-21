@@ -15,11 +15,11 @@ export const TodoApp = component$(() => {
   const syncSignalsFromStore = $(() => {
     try {
       const state = todoStore.deref();
-      console.log("[syncSignalsFromStore] Syncing from state:", {
-        fsmState: state.fsmState,
-        todosCount: state.data.todos?.length || 0,
-        isDevMode: state.isDevMode,
-      });
+      // console.log("[syncSignalsFromStore] Syncing from state:", {
+      //   fsmState: state.fsmState,
+      //   todosCount: state.data.todos?.length || 0,
+      //   isDevMode: state.isDevMode,
+      // });
 
       fsmState.value = state.fsmState;
       todos.value = state.data.todos || [];
@@ -27,12 +27,12 @@ export const TodoApp = component$(() => {
       canEdit.value = todoStore.canEdit();
       isDevMode.value = todoStore.isDevMode();
 
-      console.log("[syncSignalsFromStore] After sync - signals:", {
-        fsmState: fsmState.value,
-        canEdit: canEdit.value,
-        isEditing: isEditing.value,
-        isDevMode: isDevMode.value,
-      });
+      // console.log("[syncSignalsFromStore] After sync - signals:", {
+      //   fsmState: fsmState.value,
+      //   canEdit: canEdit.value,
+      //   isEditing: isEditing.value,
+      //   isDevMode: isDevMode.value,
+      // });
     } catch (e) {
       console.warn("[syncSignalsFromStore] Failed to sync:", e);
     }
@@ -43,7 +43,7 @@ export const TodoApp = component$(() => {
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(
     async () => {
-      console.log("[useVisibleTask$] Starting initialization");
+      // console.log("[useVisibleTask$] Starting initialization");
 
       // Load initial todos from /todos.json if no localStorage data
       await todoStore.initialize();
@@ -53,7 +53,7 @@ export const TodoApp = component$(() => {
       await syncSignalsFromStore();
 
       // Subscribe to future changes
-      console.log("[useVisibleTask$] Setting up store subscription");
+      // console.log("[useVisibleTask$] Setting up store subscription");
       const unsubscribe = todoStore.subscribe(async () => {
         console.log("[Store Subscription] Store changed, syncing signals");
         await syncSignalsFromStore();
@@ -62,10 +62,10 @@ export const TodoApp = component$(() => {
       // Note: Storage event listener is now handled in the store itself
       // for cross-tab sync via atom's watch mechanism
 
-      console.log("[useVisibleTask$] Initialization complete");
+      // console.log("[useVisibleTask$] Initialization complete");
 
       return () => {
-        console.log("[useVisibleTask$] Cleaning up subscription");
+        // console.log("[useVisibleTask$] Cleaning up subscription");
         unsubscribe();
       };
     },
@@ -74,34 +74,34 @@ export const TodoApp = component$(() => {
 
   // Wrapped actions for Qwik serialization
   const handleEnterEditMode = $(() => {
-    console.log(
-      "[handleEnterEditMode] Before transition - fsmState:",
-      fsmState.value
-    );
+    // console.log(
+    //   "[handleEnterEditMode] Before transition - fsmState:",
+    //   fsmState.value
+    // );
     todoStore.enterEditMode();
-    console.log(
-      "[handleEnterEditMode] After transition - store fsmState:",
-      todoStore.deref().fsmState
-    );
+    // console.log(
+    //   "[handleEnterEditMode] After transition - store fsmState:",
+    //   todoStore.deref().fsmState
+    // );
 
     // Force sync signals after transition
     syncSignalsFromStore();
   });
 
   const handleExitEditMode = $(() => {
-    console.log("[handleExitEditMode] Saving and exiting edit mode");
+    // console.log("[handleExitEditMode] Saving and exiting edit mode");
     todoStore.save();
     syncSignalsFromStore();
   });
 
   const handleCancel = $(() => {
-    console.log("[handleCancel] Canceling edit mode");
+    // console.log("[handleCancel] Canceling edit mode");
     todoStore.exitEditMode();
     syncSignalsFromStore();
   });
 
   const handleCommit = $(async () => {
-    console.log("[handleCommit] Committing changes");
+    // console.log("[handleCommit] Committing changes");
     await todoStore.commit();
     syncSignalsFromStore();
   });

@@ -13,9 +13,12 @@ export const initTodoFSM = (store: any) => {
     init: "viewing",
     transitions: [
       { name: "enterEditMode", from: "viewing", to: "editing" },
-      { name: "exitEditMode", from: "editing", to: "viewing" }, // Cancel (restore snapshot)
-      { name: "save", from: "editing", to: "viewing" }, // Save and exit
-      { name: "commit", from: "editing", to: "viewing" }, // Commit to server and exit (dev mode only)
+      // Cancel (restore snapshot)
+      { name: "exitEditMode", from: "editing", to: "viewing" },
+      // Save and exit
+      { name: "save", from: "editing", to: "viewing" },
+      // Commit to server and exit (dev mode only)
+      { name: "commit", from: "editing", to: "viewing" },
     ],
 
     methods: {

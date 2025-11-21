@@ -1,16 +1,6 @@
 {
   "todos": [
     {
-      "id": "3",
-      "text": "Build something awesome",
-      "completed": true
-    },
-    {
-      "id": "1763736046149",
-      "text": "somethi",
-      "completed": true
-    },
-    {
       "id": "1763740631622",
       "text": "hello",
       "completed": true
@@ -18,6 +8,11 @@
     {
       "id": "1763749327270",
       "text": "another",
+      "completed": false
+    },
+    {
+      "id": "1763751359993",
+      "text": "fasdfasd",
       "completed": false
     }
   ]

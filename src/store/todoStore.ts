@@ -101,6 +101,18 @@ const ensureFSM = () => {
     throw new Error("FSM not initialized. Call todoStore.initialize() first.");
 };
 
+// Utility: Guard for edit mode operations
+const guardEditMode = (operation: string): boolean => {
+  ensureFSM();
+  if (!canEdit(fsm.state)) {
+    console.warn(
+      `[todoStore.${operation}] Cannot ${operation} outside edit mode`
+    );
+    return false;
+  }
+  return true;
+};
+
 // Utility: Find todo by ID
 const findTodoIndex = (todos: Todo[], id: string): number => {
   return todos.findIndex((t: Todo) => t.id === id);
@@ -234,11 +246,7 @@ export const todoStore = {
 
   // Todo operations
   addTodo: (text: string) => {
-    ensureFSM();
-    if (!canEdit(fsm.state)) {
-      console.warn("[todoStore.addTodo] Cannot add todo outside edit mode");
-      return;
-    }
+    if (!guardEditMode("addTodo")) return;
 
     const todos = db.deref().data.todos || [];
     const newTodo: Todo = {
@@ -251,13 +259,7 @@ export const todoStore = {
   },
 
   toggleTodo: (id: string) => {
-    ensureFSM();
-    if (!canEdit(fsm.state)) {
-      console.warn(
-        "[todoStore.toggleTodo] Cannot toggle todo outside edit mode"
-      );
-      return;
-    }
+    if (!guardEditMode("toggleTodo")) return;
 
     const todos = db.deref().data.todos || [];
     const todoIdx = findTodoIndex(todos, id);
@@ -269,13 +271,7 @@ export const todoStore = {
   },
 
   deleteTodo: (id: string) => {
-    ensureFSM();
-    if (!canEdit(fsm.state)) {
-      console.warn(
-        "[todoStore.deleteTodo] Cannot delete todo outside edit mode"
-      );
-      return;
-    }
+    if (!guardEditMode("deleteTodo")) return;
 
     const todos = db.deref().data.todos || [];
     const filtered = todos.filter((t: Todo) => t.id !== id);
@@ -283,13 +279,7 @@ export const todoStore = {
   },
 
   updateTodoText: (id: string, text: string) => {
-    ensureFSM();
-    if (!canEdit(fsm.state)) {
-      console.warn(
-        "[todoStore.updateTodoText] Cannot update todo outside edit mode"
-      );
-      return;
-    }
+    if (!guardEditMode("updateTodoText")) return;
 
     const todos = db.deref().data.todos || [];
     const todoIdx = findTodoIndex(todos, id);
