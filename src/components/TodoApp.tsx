@@ -28,7 +28,7 @@ export const TodoApp = component$(() => {
   const uncommittedCount = useSignal(todoStore.getUncommittedCount());
   const canEdit = useSignal(todoStore.canEdit());
   const isEditing = useSignal(todoStore.isEditing());
-  const canPersistToServer = useSignal(todoStore.canPersistToServer());
+  const canCommitToServerFile = useSignal(todoStore.canCommitToServerFile());
 
   // Subscribe to store changes
   // Only run on client (not during SSR/SSG)
@@ -47,7 +47,7 @@ export const TodoApp = component$(() => {
       uncommittedCount.value = todoStore.getUncommittedCount();
       canEdit.value = todoStore.canEdit();
       isEditing.value = todoStore.isEditing();
-      canPersistToServer.value = todoStore.canPersistToServer();
+      canCommitToServerFile.value = todoStore.canCommitToServerFile();
 
       // Subscribe to future changes
       const unsubscribe = todoStore.subscribe((state) => {
@@ -57,7 +57,7 @@ export const TodoApp = component$(() => {
         uncommittedCount.value = todoStore.getUncommittedCount();
         canEdit.value = todoStore.canEdit();
         isEditing.value = todoStore.isEditing();
-        canPersistToServer.value = todoStore.canPersistToServer();
+        canCommitToServerFile.value = todoStore.canCommitToServerFile();
       });
 
       // Note: Storage event listener is now handled in the store itself
@@ -144,8 +144,8 @@ export const TodoApp = component$(() => {
         <div class="text-sm text-gray-600">
           Debug: fsmState.value = "{fsmState.value}", canEdit ={" "}
           {canEdit.value ? "true" : "false"}, isEditing ={" "}
-          {isEditing.value ? "true" : "false"}, canPersistToServer ={" "}
-          {canPersistToServer.value ? "true" : "false"}
+          {isEditing.value ? "true" : "false"}, canCommitToServerFile ={" "}
+          {canCommitToServerFile.value ? "true" : "false"}
         </div>
 
         <div class="flex gap-2 items-center min-h-[42px]">
@@ -158,9 +158,9 @@ export const TodoApp = component$(() => {
                 >
                   Enter Edit Mode
                 </button>
-                {!canPersistToServer.value && (
+                {!canCommitToServerFile.value && (
                   <div class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded h-[42px] flex items-center text-sm">
-                    ℹ️ SSG mode: Changes auto-save to browser
+                    ℹ️ SSG mode: Changes auto-save to browser only
                   </div>
                 )}
               </>
@@ -168,14 +168,14 @@ export const TodoApp = component$(() => {
 
             {fsmState.value === "editing" && (
               <>
-                {canPersistToServer.value ? (
+                {canCommitToServerFile.value ? (
                   <>
                     <button
                       onClick$={handleCommit}
                       disabled={uncommittedCount.value === 0}
                       class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 h-[42px] text-sm whitespace-nowrap"
                     >
-                      � Commit ({uncommittedCount.value})
+                      💾 Commit to File ({uncommittedCount.value})
                     </button>
                     <button
                       onClick$={handleCancel}
@@ -189,7 +189,7 @@ export const TodoApp = component$(() => {
                     onClick$={handleExitEditMode}
                     class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[42px] text-sm whitespace-nowrap"
                   >
-                    Exit Edit Mode
+                    💾 Save
                   </button>
                 )}
               </>

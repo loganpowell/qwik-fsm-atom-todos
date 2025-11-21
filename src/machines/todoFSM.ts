@@ -46,13 +46,12 @@ const loadCommittedSnapshot = () => {
   return null;
 };
 
-// Detect if we're in SSG/production mode
-const isSSG = () => {
-  if (typeof window === "undefined") return true;
-  return (
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1"
-  );
+// Detect if we're in dev mode (with API server) vs SSG/production mode
+const isDevMode = () => {
+  if (typeof window === "undefined") return false;
+  // In dev mode, Vite sets import.meta.env.DEV to true
+  // In production/SSG build, it's false
+  return import.meta.env.DEV;
 };
 
 export const initTodoFSM = (store: any, initialState?: string) => {
@@ -62,7 +61,7 @@ export const initTodoFSM = (store: any, initialState?: string) => {
   committedSnapshot = loadCommittedSnapshot();
 
   // Detect environment and store in FSM data
-  const isDev = !isSSG();
+  const isDev = isDevMode();
   const startState = initialState || "viewing";
 
   const fsm = new StateMachine({
@@ -188,8 +187,9 @@ export const canEdit = (state: string): boolean => {
 
 export const isEditing = (state: string): boolean => state === "editing";
 
-// Helper to know if we can persist to server (dev only)
-export const canPersistToServer = (): boolean => !isSSG();
+// Helper to know if we can commit changes to the server's todos.json file (dev only)
+// Note: All users can edit and save to localStorage, but only dev can commit to the file
+export const canCommitToServerFile = (): boolean => isDevMode();
 
 // Helper to check if FSM instance is in dev mode
 export const isFSMInDevMode = (fsm: any): boolean => {

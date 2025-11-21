@@ -4,6 +4,7 @@ import {
   canEdit,
   isEditing,
   getUncommittedCount,
+  canCommitToServerFile,
 } from "../machines/todoFSM";
 
 export interface Todo {
@@ -24,15 +25,6 @@ export interface TodoStoreState {
 }
 
 let fsm: any = null;
-
-// Detect if we're in SSG/production mode
-const isSSG = () => {
-  if (typeof window === "undefined") return true;
-  return (
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1"
-  );
-};
 
 // Load initial data from localStorage if available
 const loadPersistedState = (): Partial<TodoStoreState> | null => {
@@ -368,7 +360,7 @@ export const todoStore = {
     ensureFSM();
     return isEditing(fsm.state);
   },
-  canPersistToServer: () => {
+  canCommitToServerFile: () => {
     ensureFSM();
     return (fsm as any).isDev ?? false;
   },
