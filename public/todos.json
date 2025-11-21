@@ -13,6 +13,11 @@
     {
       "id": "1763740631622",
       "text": "hello",
+      "completed": true
+    },
+    {
+      "id": "1763749327270",
+      "text": "another",
       "completed": false
     }
   ]

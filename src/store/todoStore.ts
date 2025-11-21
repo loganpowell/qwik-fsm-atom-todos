@@ -3,8 +3,6 @@ import {
   initTodoFSM,
   canEdit,
   isEditing,
-  getUncommittedCount,
-  canCommitToServerFile,
 } from "../machines/todoFSM";
 
 export interface Todo {
@@ -19,163 +17,91 @@ export interface TodoData {
 
 export interface TodoStoreState {
   data: TodoData;
-  originalData: Partial<TodoData>; // Snapshot for unsaved changes
+  editModeSnapshot: TodoData | null; // Snapshot when entering edit mode (for cancel)
   fsmState: string;
-  changeCount: number; // Changes since last save
+  isDevMode: boolean; // Detected once on init
 }
 
 let fsm: any = null;
 
-// Load initial data from localStorage if available
-const loadPersistedState = (): Partial<TodoStoreState> | null => {
-  if (typeof window === "undefined") return null;
+// Detect if we're in dev mode (Vite dev server) vs production/SSG
+const detectDevMode = (): boolean => {
+  if (typeof window === "undefined") return false;
+  // Vite sets import.meta.env.DEV to true in dev mode
+  return import.meta.env.DEV;
+};
 
+// Load from localStorage (browser storage only)
+const loadFromLocalStorage = (): TodoData | null => {
+  if (typeof window === "undefined") return null;
   try {
-    const stored = localStorage.getItem("todo-store");
-    return stored ? JSON.parse(stored) : null;
+    const stored = localStorage.getItem("todo-data");
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    console.log(`[localStorage] Loaded ${parsed.todos?.length || 0} todos`);
+    return parsed;
   } catch (e) {
-    console.warn("[loadPersistedState] ❌ Failed to load persisted state", e);
+    console.warn("[localStorage] Failed to load:", e);
     return null;
   }
 };
 
-// Load initial todos from public JSON file
-const loadInitialTodos = async (): Promise<TodoData> => {
+// Save to localStorage
+const saveToLocalStorage = (data: TodoData) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("todo-data", JSON.stringify(data));
+    console.log(`[localStorage] Saved ${data.todos.length} todos`);
+  } catch (e) {
+    console.warn("[localStorage] Failed to save:", e);
+  }
+};
+
+// Load from /todos.json (initial data source)
+const loadFromServerJson = async (): Promise<TodoData> => {
   try {
     const response = await fetch("/todos.json");
-    if (!response.ok) {
-      console.warn("[loadInitialTodos] ⚠️ Failed to load /todos.json");
-      return { todos: [] };
-    }
+    if (!response.ok) throw new Error("Failed to fetch");
     const data = await response.json();
-    console.log(
-      `[loadInitialTodos] ✅ Loaded ${data.todos.length} todos from /todos.json`
-    );
+    console.log(`[/todos.json] Loaded ${data.todos.length} todos`);
     return data;
   } catch (e) {
-    console.warn("[loadInitialTodos] ❌ Failed to fetch todos.json", e);
+    console.warn("[/todos.json] Failed to load:", e);
     return { todos: [] };
   }
 };
 
-// Save state to localStorage
-const persistState = (state: TodoStoreState) => {
-  if (typeof window === "undefined") return;
-
-  try {
-    const toSave = {
-      data: state.data,
-      fsmState: state.fsmState,
-      originalData: state.originalData,
-      changeCount: state.changeCount,
-    };
-    localStorage.setItem("todo-store", JSON.stringify(toSave));
-  } catch (e) {
-    console.warn("[persistState] ❌ Failed to persist state", e);
-  }
-};
-
-// Initialize with data from localStorage or empty state (will load from JSON on client)
-const persistedState = loadPersistedState();
-const initialFsmState = persistedState?.fsmState || "viewing";
-
+// Initial state - will be populated on client
 const initialState: TodoStoreState = {
-  data: persistedState?.data || { todos: [] },
-  originalData:
-    initialFsmState === "editing" && persistedState?.originalData
-      ? persistedState.originalData
-      : {},
-  fsmState: initialFsmState,
-  changeCount:
-    initialFsmState === "editing" && persistedState?.changeCount !== undefined
-      ? persistedState.changeCount
-      : 0,
+  data: { todos: [] },
+  editModeSnapshot: null,
+  fsmState: "viewing",
+  isDevMode: false,
 };
 
 export const db = defAtom<TodoStoreState>(initialState);
 
-// Flag to prevent infinite loop during cross-tab sync
-let isSyncingFromStorage = false;
-
-// Add persistence watch
-db.addWatch("persist", (id, prev, curr) => {
-  // Skip persistence if we're currently syncing from a storage event
-  // This prevents infinite loops where storage events trigger writes
-  // which trigger more storage events
-  if (isSyncingFromStorage) return;
-  persistState(curr);
+// Auto-save to localStorage on any data change
+db.addWatch("autosave", (_, __, curr) => {
+  if (curr.fsmState === "editing") {
+    // Auto-save changes to localStorage while editing
+    saveToLocalStorage(curr.data);
+  }
 });
 
-// Add storage event listener for cross-tab sync
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key === "todo-store" && e.newValue) {
-      try {
-        const newState = JSON.parse(e.newValue);
-
-        // Set flag to prevent persist watch from firing during sync
-        isSyncingFromStorage = true;
-
-        // CRITICAL: Reinitialize FSM to match the new state BEFORE updating atom
-        // This ensures the FSM state stays in sync across tabs
-        fsm = initTodoFSM(
-          {
-            getState: () => db.deref(),
-            setState: (updates: Partial<TodoStoreState>) => {
-              db.swap((state) => ({ ...state, ...updates }));
-            },
-          },
-          newState.fsmState
-        );
-
-        console.log(
-          `[Storage Sync] FSM reinitialized to state: ${newState.fsmState}, fsm.state: ${fsm.state}`
-        );
-
-        // Update the atom state - this will trigger all watches/subscriptions
-        // but the persist watch will be skipped due to isSyncingFromStorage flag
-        db.reset(newState);
-
-        // Reset flag after sync completes
-        isSyncingFromStorage = false;
-      } catch (err) {
-        console.warn("Failed to sync from storage event", err);
-        isSyncingFromStorage = false; // Ensure flag is reset even on error
-      }
-    }
-  });
-}
-
-// Initialize FSM after atom is created
-fsm = initTodoFSM(
-  {
+// Initialize FSM (will be called after first data load)
+const initializeFSM = () => {
+  fsm = initTodoFSM({
     getState: () => db.deref(),
     setState: (updates: Partial<TodoStoreState>) => {
       db.swap((state) => ({ ...state, ...updates }));
     },
-  },
-  initialFsmState
-);
+  });
+};
 
 // Utility: Ensure FSM is initialized
 const ensureFSM = () => {
-  if (!fsm) throw new Error("FSM not initialized");
-};
-
-// Utility: Generic FSM state query wrapper
-const queryFSM = <T>(fn: () => T): T => {
-  ensureFSM();
-  return fn();
-};
-
-// Utility: Guard edit mode operations
-const guardEditMode = (operation: string): boolean => {
-  ensureFSM();
-  if (!canEdit(fsm.state)) {
-    console.warn(`Cannot ${operation} outside edit mode`);
-    return false;
-  }
-  return true;
+  if (!fsm) throw new Error("FSM not initialized. Call todoStore.initialize() first.");
 };
 
 // Utility: Find todo by ID
@@ -183,134 +109,133 @@ const findTodoIndex = (todos: Todo[], id: string): number => {
   return todos.findIndex((t: Todo) => t.id === id);
 };
 
-// Utility: Calculate number of changed todos by comparing with original
-const calculateChanges = (): number => {
-  const state = db.deref();
-  const currentTodos = state.data.todos || [];
-  const originalTodos = (state.originalData.todos as Todo[]) || [];
-
-  // Track unique changed todo IDs
-  const changedIds = new Set<string>();
-
-  // Check for new todos (in current but not in original)
-  currentTodos.forEach((todo) => {
-    const original = originalTodos.find((o) => o.id === todo.id);
-    if (!original) {
-      changedIds.add(todo.id); // New todo
-    } else if (
-      todo.text !== original.text ||
-      todo.completed !== original.completed
-    ) {
-      changedIds.add(todo.id); // Modified todo
-    }
-  });
-
-  // Check for deleted todos (in original but not in current)
-  originalTodos.forEach((original) => {
-    const current = currentTodos.find((t) => t.id === original.id);
-    if (!current) {
-      changedIds.add(original.id); // Deleted todo
-    }
-  });
-
-  return changedIds.size;
-};
-
-// Utility: Update change count based on actual differences
-const updateChangeCount = () => {
-  const count = calculateChanges();
-  db.resetIn(["changeCount"], count);
-};
+// Deep clone utility
+const deepClone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
 
 // Store API - functional interface around the atom
 export const todoStore = {
   // Core atom access
   deref: () => db.deref(),
   subscribe: (listener: (state: TodoStoreState) => void) => {
-    const watchId = `watch-${Date.now()}`;
+    const watchId = `watch-${Date.now()}-${Math.random()}`;
     db.addWatch(watchId, (_, __, curr) => listener(curr));
     return () => db.removeWatch(watchId);
+  },
+
+  // Initialize - MUST be called first on client
+  initialize: async () => {
+    console.log("[todoStore.initialize] Starting...");
+    
+    // Detect dev mode
+    const isDevMode = detectDevMode();
+    console.log(`[todoStore.initialize] Mode: ${isDevMode ? 'DEV' : 'SSG'}`);
+    
+    // Try to load from localStorage first
+    let data = loadFromLocalStorage();
+    
+    // If no localStorage data, load from /todos.json
+    if (!data || data.todos.length === 0) {
+      console.log("[todoStore.initialize] No localStorage data, loading from /todos.json");
+      data = await loadFromServerJson();
+      // Save to localStorage immediately
+      saveToLocalStorage(data);
+    } else {
+      console.log("[todoStore.initialize] Using data from localStorage");
+    }
+    
+    // Update store
+    db.swap((state) => ({
+      ...state,
+      data,
+      isDevMode,
+      fsmState: "viewing",
+    }));
+    
+    // Initialize FSM
+    initializeFSM();
+    
+    console.log("[todoStore.initialize] Complete", {
+      todosCount: data.todos.length,
+      isDevMode,
+    });
   },
 
   // FSM transitions
   enterEditMode: () => {
     ensureFSM();
+    console.log("[todoStore.enterEditMode] Entering edit mode");
+    
+    // Take snapshot for cancel
+    const currentData = db.deref().data;
+    db.resetIn(["editModeSnapshot"], deepClone(currentData));
+    
     fsm.enterEditMode();
   },
+
   exitEditMode: () => {
     ensureFSM();
-    // Cancel: restore original data before exiting
-    const state = db.deref();
-    if (state.originalData.todos) {
-      db.resetIn(["data", "todos"], state.originalData.todos as Todo[]);
+    console.log("[todoStore.exitEditMode] Canceling - restoring snapshot");
+    
+    // Restore from snapshot
+    const snapshot = db.deref().editModeSnapshot;
+    if (snapshot) {
+      db.resetIn(["data"], snapshot);
+      saveToLocalStorage(snapshot);
     }
+    
+    db.resetIn(["editModeSnapshot"], null);
     fsm.exitEditMode();
   },
-  exitAndKeepChanges: () => {
-    ensureFSM();
-    console.log(
-      "💾 Exiting edit mode (changes already saved to localStorage)..."
-    );
-    // Changes are already persisted via watch - just transition to viewing
-    // Use save transition which exits to viewing
-    fsm.save();
-  },
-  commit: async () => {
-    ensureFSM();
-    const data = db.deref().data;
 
-    try {
-      // Only save to server file in dev mode (localhost)
-      if ((fsm as any).isDev) {
-        console.log("💾 Committing to server file and localStorage...");
-        try {
-          const response = await fetch("/api/save-todos", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(data),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            console.log("✅ Saved to server file:", result.message);
-          } else {
-            console.warn("⚠️ Server save failed, saved to localStorage only");
-          }
-        } catch (apiError) {
-          console.warn(
-            "⚠️ API not available, saved to localStorage only",
-            apiError
-          );
-        }
-      } else {
-        console.log(
-          "💾 SSG mode: Saving to localStorage only (server file is read-only)"
-        );
-      }
-
-      // Always transition back to viewing after commit (localStorage is already updated via watch)
-      fsm.commit();
-    } catch (error) {
-      console.error("❌ Commit failed:", error);
-      throw error;
-    }
-  },
-
-  // Save: Just save to localStorage (SSG mode)
   save: () => {
     ensureFSM();
-    console.log("💾 Saving to localStorage...");
-
-    // localStorage is already updated via the persist watch
-    // Just transition FSM state back to viewing
+    console.log("[todoStore.save] Saving to localStorage and exiting edit mode");
+    
+    // Data is already in localStorage via autosave watch
+    db.resetIn(["editModeSnapshot"], null);
     fsm.save();
   },
 
-  // Todo operations using atom's built-in path methods
+  commit: async () => {
+    ensureFSM();
+    const { data, isDevMode } = db.deref();
+    
+    if (!isDevMode) {
+      console.log("[todoStore.commit] SSG mode - commit not available, using save instead");
+      todoStore.save();
+      return;
+    }
+    
+    console.log("[todoStore.commit] Dev mode - committing to server");
+    
+    try {
+      const response = await fetch("/api/save-todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        console.log("[todoStore.commit] ✅ Committed to server");
+      } else {
+        console.warn("[todoStore.commit] ⚠️ Server save failed");
+      }
+    } catch (error) {
+      console.error("[todoStore.commit] ❌ Commit failed:", error);
+    }
+    
+    // Always save to localStorage and exit edit mode
+    db.resetIn(["editModeSnapshot"], null);
+    fsm.commit();
+  },
+
+  // Todo operations
   addTodo: (text: string) => {
-    if (!guardEditMode("add todo")) return;
+    ensureFSM();
+    if (!canEdit(fsm.state)) {
+      console.warn("[todoStore.addTodo] Cannot add todo outside edit mode");
+      return;
+    }
 
     const todos = db.deref().data.todos || [];
     const newTodo: Todo = {
@@ -320,11 +245,14 @@ export const todoStore = {
     };
 
     db.resetIn(["data", "todos"], [...todos, newTodo]);
-    updateChangeCount();
   },
 
   toggleTodo: (id: string) => {
-    if (!guardEditMode("toggle todo")) return;
+    ensureFSM();
+    if (!canEdit(fsm.state)) {
+      console.warn("[todoStore.toggleTodo] Cannot toggle todo outside edit mode");
+      return;
+    }
 
     const todos = db.deref().data.todos || [];
     const todoIdx = findTodoIndex(todos, id);
@@ -332,57 +260,48 @@ export const todoStore = {
     if (todoIdx !== -1) {
       const todo = todos[todoIdx];
       db.resetIn(["data", "todos", todoIdx, "completed"], !todo.completed);
-      updateChangeCount();
     }
   },
 
   deleteTodo: (id: string) => {
-    if (!guardEditMode("delete todo")) return;
+    ensureFSM();
+    if (!canEdit(fsm.state)) {
+      console.warn("[todoStore.deleteTodo] Cannot delete todo outside edit mode");
+      return;
+    }
 
     const todos = db.deref().data.todos || [];
     const filtered = todos.filter((t: Todo) => t.id !== id);
     db.resetIn(["data", "todos"], filtered);
-    updateChangeCount();
   },
 
   updateTodoText: (id: string, text: string) => {
-    if (!guardEditMode("update todo")) return;
+    ensureFSM();
+    if (!canEdit(fsm.state)) {
+      console.warn("[todoStore.updateTodoText] Cannot update todo outside edit mode");
+      return;
+    }
 
     const todos = db.deref().data.todos || [];
     const todoIdx = findTodoIndex(todos, id);
 
     if (todoIdx !== -1) {
       db.resetIn(["data", "todos", todoIdx, "text"], text);
-      updateChangeCount();
     }
   },
 
   // State queries
-  canEdit: () => queryFSM(() => canEdit(fsm.state)),
-  isEditing: () => queryFSM(() => isEditing(fsm.state)),
-  canCommitToServerFile: () => queryFSM(() => (fsm as any).isDev ?? false),
-  getChangeCount: () => db.deref().changeCount,
-  getUncommittedCount: () => getUncommittedCount(), // Delegate to FSM
-
-  // Initialize store - load initial todos from public JSON if no localStorage data
-  initialize: async () => {
-    const currentState = db.deref();
-    // Only load from JSON if we don't have data in localStorage
-    if (currentState.data.todos.length === 0) {
-      const initialData = await loadInitialTodos();
-      db.resetIn(["data"], initialData);
-      console.log(
-        `[todoStore] ✅ Initialized with ${initialData.todos.length} todos from /todos.json`
-      );
-
-      // Force persist to localStorage immediately after loading from JSON
-      // This ensures first-time visitors have data in localStorage
-      persistState(db.deref());
-      console.log("[todoStore] 💾 Persisted initial data to localStorage");
-    } else {
-      console.log(
-        `[todoStore] ℹ️ Using existing data from localStorage (${currentState.data.todos.length} todos)`
-      );
-    }
+  canEdit: () => {
+    ensureFSM();
+    return canEdit(fsm.state);
+  },
+  
+  isEditing: () => {
+    ensureFSM();
+    return isEditing(fsm.state);
+  },
+  
+  isDevMode: () => {
+    return db.deref().isDevMode;
   },
 };

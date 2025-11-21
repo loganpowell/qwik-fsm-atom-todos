@@ -4,72 +4,38 @@ import { todoStore } from "../store/todoStore";
 export const TodoApp = component$(() => {
   const newTodoText = useSignal("");
 
-  // Reactive signals synced with store
-  // Use safe defaults for SSR
-  let state;
-  try {
-    state = todoStore.deref();
-  } catch (e) {
-    console.error("[TodoApp] ❌ Failed to get store state:", e);
-  }
-
-  if (!state) {
-    state = {
-      fsmState: "viewing",
-      data: { todos: [] },
-      changeCount: 0,
-      originalData: {},
-    };
-  }
-
-  const fsmState = useSignal(state.fsmState);
-  const todos = useSignal(state.data.todos || []);
-  const changeCount = useSignal(state.changeCount);
-
-  // Safe initialization for SSG - these will be updated by useVisibleTask$ on client
-  let initialUncommittedCount = 0;
-  let initialCanEdit = false;
-  let initialIsEditing = false;
-  let initialCanCommitToServerFile = false;
-
-  try {
-    initialUncommittedCount = todoStore.getUncommittedCount();
-    initialCanEdit = todoStore.canEdit();
-    initialIsEditing = todoStore.isEditing();
-    initialCanCommitToServerFile = todoStore.canCommitToServerFile();
-  } catch (e) {
-    // During SSG, store methods might fail - use safe defaults
-    console.warn("[TodoApp] Using safe defaults for SSG:", e);
-  }
-
-  const uncommittedCount = useSignal(initialUncommittedCount);
-  const canEdit = useSignal(initialCanEdit);
-  const isEditing = useSignal(initialIsEditing);
-  const canCommitToServerFile = useSignal(initialCanCommitToServerFile);
+  // Reactive signals synced with store - safe defaults for SSG
+  const fsmState = useSignal("viewing");
+  const todos = useSignal<any[]>([]);
+  const isEditing = useSignal(false);
+  const canEdit = useSignal(false);
+  const isDevMode = useSignal(false);
 
   // Helper to sync all signals from store state
   const syncSignalsFromStore = $(() => {
-    const state = todoStore.deref();
-    console.log("[syncSignalsFromStore] Syncing from state:", {
-      fsmState: state.fsmState,
-      canEdit: todoStore.canEdit(),
-      isEditing: todoStore.isEditing(),
-      todosCount: state.data.todos?.length || 0,
-    });
+    try {
+      const state = todoStore.deref();
+      console.log("[syncSignalsFromStore] Syncing from state:", {
+        fsmState: state.fsmState,
+        todosCount: state.data.todos?.length || 0,
+        isDevMode: state.isDevMode,
+      });
 
-    fsmState.value = state.fsmState;
-    todos.value = state.data.todos || [];
-    changeCount.value = state.changeCount;
-    uncommittedCount.value = todoStore.getUncommittedCount();
-    canEdit.value = todoStore.canEdit();
-    isEditing.value = todoStore.isEditing();
-    canCommitToServerFile.value = todoStore.canCommitToServerFile();
+      fsmState.value = state.fsmState;
+      todos.value = state.data.todos || [];
+      isEditing.value = todoStore.isEditing();
+      canEdit.value = todoStore.canEdit();
+      isDevMode.value = todoStore.isDevMode();
 
-    console.log("[syncSignalsFromStore] After sync - signals:", {
-      fsmState: fsmState.value,
-      canEdit: canEdit.value,
-      isEditing: isEditing.value,
-    });
+      console.log("[syncSignalsFromStore] After sync - signals:", {
+        fsmState: fsmState.value,
+        canEdit: canEdit.value,
+        isEditing: isEditing.value,
+        isDevMode: isDevMode.value,
+      });
+    } catch (e) {
+      console.warn("[syncSignalsFromStore] Failed to sync:", e);
+    }
   });
 
   // Subscribe to store changes
@@ -123,8 +89,8 @@ export const TodoApp = component$(() => {
   });
 
   const handleExitEditMode = $(() => {
-    console.log("[handleExitEditMode] Exiting edit mode and keeping changes");
-    todoStore.exitAndKeepChanges();
+    console.log("[handleExitEditMode] Saving and exiting edit mode");
+    todoStore.save();
     syncSignalsFromStore();
   });
 
@@ -180,14 +146,7 @@ export const TodoApp = component$(() => {
             <span class="px-2 py-1 bg-blue-200 rounded">{fsmState.value}</span>
           </div>
           <div class="min-w-[120px] text-right">
-            {isEditing.value && (
-              <div>
-                <span class="font-semibold">Changes: </span>
-                <span class="px-2 py-1 bg-yellow-200 rounded">
-                  {changeCount.value}
-                </span>
-              </div>
-            )}
+            {/* Placeholder for future features */}
           </div>
         </div>
       </div>
@@ -197,8 +156,8 @@ export const TodoApp = component$(() => {
         <div class="text-sm text-gray-600">
           Debug: fsmState.value = "{fsmState.value}", canEdit ={" "}
           {canEdit.value ? "true" : "false"}, isEditing ={" "}
-          {isEditing.value ? "true" : "false"}, canCommitToServerFile ={" "}
-          {canCommitToServerFile.value ? "true" : "false"}
+          {isEditing.value ? "true" : "false"}, isDevMode ={" "}
+          {isDevMode.value ? "true" : "false"}
         </div>
 
         <div class="flex gap-2 items-center min-h-[42px]">
@@ -212,7 +171,7 @@ export const TodoApp = component$(() => {
                 >
                   Edit
                 </button>
-                {!canCommitToServerFile.value && (
+                {!isDevMode.value && (
                   <div class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded h-[42px] flex items-center text-sm">
                     ℹ️ SSG mode: Changes auto-save to browser only
                   </div>
@@ -222,15 +181,14 @@ export const TodoApp = component$(() => {
 
             {fsmState.value === "editing" ? (
               <>
-                {canCommitToServerFile.value ? (
+                {isDevMode.value ? (
                   <>
                     <button
                       onClick$={handleCommit}
-                      disabled={uncommittedCount.value === 0}
-                      class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 h-[42px] text-sm whitespace-nowrap cursor-pointer"
+                      class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[42px] text-sm whitespace-nowrap cursor-pointer"
                       type="button"
                     >
-                      💾 Commit ({uncommittedCount.value})
+                      💾 Commit to Server
                     </button>
                     <button
                       onClick$={handleCancel}
@@ -241,13 +199,22 @@ export const TodoApp = component$(() => {
                     </button>
                   </>
                 ) : (
-                  <button
-                    onClick$={handleExitEditMode}
-                    class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[42px] text-sm whitespace-nowrap cursor-pointer"
-                    type="button"
-                  >
-                    💾 Save
-                  </button>
+                  <>
+                    <button
+                      onClick$={handleExitEditMode}
+                      class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 h-[42px] text-sm whitespace-nowrap cursor-pointer"
+                      type="button"
+                    >
+                      💾 Save
+                    </button>
+                    <button
+                      onClick$={handleCancel}
+                      class="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 h-[42px] text-sm whitespace-nowrap cursor-pointer"
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                  </>
                 )}
               </>
             ) : null}
