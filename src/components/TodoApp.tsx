@@ -10,6 +10,7 @@ export const TodoApp = component$(() => {
   const isEditing = useSignal(false);
   const canEdit = useSignal(false);
   const isDevMode = useSignal(false);
+  const isInitialized = useSignal(false); // Track initialization state
 
   // Helper to sync all signals from store state
   const syncSignalsFromStore = $(() => {
@@ -51,6 +52,9 @@ export const TodoApp = component$(() => {
       // Initial sync: Update signals with current store state on mount
       console.log("[useVisibleTask$] Performing initial sync");
       await syncSignalsFromStore();
+
+      // Mark as initialized to prevent flicker
+      isInitialized.value = true;
 
       // Subscribe to future changes
       // console.log("[useVisibleTask$] Setting up store subscription");
@@ -171,7 +175,7 @@ export const TodoApp = component$(() => {
                 >
                   Edit
                 </button>
-                {!isDevMode.value && (
+                {isInitialized.value && !isDevMode.value && (
                   <div class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded h-[42px] flex items-center text-sm">
                     ℹ️ SSG mode: Changes auto-save to browser only
                   </div>
@@ -248,10 +252,7 @@ export const TodoApp = component$(() => {
           <div class="flex gap-2">
             <input
               type="text"
-              value={newTodoText.value}
-              onInput$={(e) => {
-                newTodoText.value = (e.target as HTMLInputElement).value;
-              }}
+              bind:value={newTodoText}
               onKeyPress$={(e) => {
                 if (e.key === "Enter") {
                   handleAddTodo();
@@ -274,7 +275,7 @@ export const TodoApp = component$(() => {
       {/* Todo List */}
       <div class="space-y-2">
         {todos.value.length === 0 ? (
-          <p class="text-gray-500 text-center py-8">No todos yet!</p>
+          <p class="text-gray-500 text-center py-8">Loading Todos...</p>
         ) : (
           todos.value.map((todo: any) => (
             <div

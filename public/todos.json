@@ -1,18 +1,13 @@
 {
   "todos": [
     {
-      "id": "1763740631622",
-      "text": "hello",
-      "completed": true
-    },
-    {
-      "id": "1763749327270",
+      "id": "1763755870736",
       "text": "another",
       "completed": false
     },
     {
-      "id": "1763751359993",
-      "text": "fasdfasd",
+      "id": "1763755876846",
+      "text": "spt11",
       "completed": false
     }
   ]

@@ -25,7 +25,7 @@ export const onPost: RequestHandler = async ({ request, json }) => {
 
   try {
     const body = (await request.json()) as TodoData;
-    console.log("Saving todos:", JSON.stringify(body, null, 2));
+    // console.log("Saving todos:", JSON.stringify(body, null, 2));
 
     // Validate the data structure
     if (!body || !Array.isArray(body.todos)) {
