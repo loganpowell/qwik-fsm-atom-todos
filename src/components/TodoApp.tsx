@@ -30,35 +30,42 @@ export const TodoApp = component$(() => {
   const canPersistToServer = useSignal(todoStore.canPersistToServer());
 
   // Subscribe to store changes
+  // Only run on client (not during SSR/SSG)
   // eslint-disable-next-line qwik/no-use-visible-task
-  useVisibleTask$(async () => {
-    // Initial sync: Update signals with current store state on mount
-    const initialState = todoStore.deref();
+  useVisibleTask$(
+    async () => {
+      // Load initial todos from /todos.json if no localStorage data
+      await todoStore.initialize();
 
-    fsmState.value = initialState.fsmState;
-    todos.value = initialState.data.todos || [];
-    changeCount.value = initialState.changeCount;
-    canEdit.value = todoStore.canEdit();
-    isEditing.value = todoStore.isEditing();
-    canPersistToServer.value = todoStore.canPersistToServer();
+      // Initial sync: Update signals with current store state on mount
+      const initialState = todoStore.deref();
 
-    // Subscribe to future changes
-    const unsubscribe = todoStore.subscribe((state) => {
-      fsmState.value = state.fsmState;
-      todos.value = state.data.todos || [];
-      changeCount.value = state.changeCount;
+      fsmState.value = initialState.fsmState;
+      todos.value = initialState.data.todos || [];
+      changeCount.value = initialState.changeCount;
       canEdit.value = todoStore.canEdit();
       isEditing.value = todoStore.isEditing();
       canPersistToServer.value = todoStore.canPersistToServer();
-    });
 
-    // Note: Storage event listener is now handled in the store itself
-    // for cross-tab sync via atom's watch mechanism
+      // Subscribe to future changes
+      const unsubscribe = todoStore.subscribe((state) => {
+        fsmState.value = state.fsmState;
+        todos.value = state.data.todos || [];
+        changeCount.value = state.changeCount;
+        canEdit.value = todoStore.canEdit();
+        isEditing.value = todoStore.isEditing();
+        canPersistToServer.value = todoStore.canPersistToServer();
+      });
 
-    return () => {
-      unsubscribe();
-    };
-  });
+      // Note: Storage event listener is now handled in the store itself
+      // for cross-tab sync via atom's watch mechanism
+
+      return () => {
+        unsubscribe();
+      };
+    },
+    { strategy: "document-ready" }
+  );
 
   // Wrapped actions for Qwik serialization
   const handleEnterEditMode = $(() => {

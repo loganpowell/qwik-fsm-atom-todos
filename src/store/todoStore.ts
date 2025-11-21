@@ -5,8 +5,6 @@ import {
   isEditing,
   canPersistToServer,
 } from "../machines/todoFSM";
-// Vite will handle this import at build time for SSG
-import initialTodosData from "../../public/todos.json";
 
 export interface Todo {
   id: string;
@@ -49,6 +47,25 @@ const loadPersistedState = (): Partial<TodoStoreState> | null => {
   }
 };
 
+// Load initial todos from public JSON file
+const loadInitialTodos = async (): Promise<TodoData> => {
+  try {
+    const response = await fetch("/todos.json");
+    if (!response.ok) {
+      console.warn("[loadInitialTodos] ⚠️ Failed to load /todos.json");
+      return { todos: [] };
+    }
+    const data = await response.json();
+    console.log(
+      `[loadInitialTodos] ✅ Loaded ${data.todos.length} todos from /todos.json`
+    );
+    return data;
+  } catch (e) {
+    console.warn("[loadInitialTodos] ❌ Failed to fetch todos.json", e);
+    return { todos: [] };
+  }
+};
+
 // Save state to localStorage
 const persistState = (state: TodoStoreState) => {
   if (typeof window === "undefined") return;
@@ -66,13 +83,12 @@ const persistState = (state: TodoStoreState) => {
   }
 };
 
-// Initialize with data from Vite JSON import (SSG) or localStorage (dev)
+// Initialize with data from localStorage or empty state (will load from JSON on client)
 const persistedState = loadPersistedState();
 const initialFsmState = persistedState?.fsmState || "viewing";
 
-// Use persisted data if available, otherwise use the imported JSON data
 const initialState: TodoStoreState = {
-  data: persistedState?.data || initialTodosData,
+  data: persistedState?.data || { todos: [] },
   originalData:
     initialFsmState === "editing" && persistedState?.originalData
       ? persistedState.originalData
@@ -335,4 +351,21 @@ export const todoStore = {
   },
   canPersistToServer: () => canPersistToServer(),
   getChangeCount: () => db.deref().changeCount,
+
+  // Initialize store - load initial todos from public JSON if no localStorage data
+  initialize: async () => {
+    const currentState = db.deref();
+    // Only load from JSON if we don't have data in localStorage
+    if (currentState.data.todos.length === 0) {
+      const initialData = await loadInitialTodos();
+      db.resetIn(["data"], initialData);
+      console.log(
+        `[todoStore] ✅ Initialized with ${initialData.todos.length} todos from /todos.json`
+      );
+    } else {
+      console.log(
+        `[todoStore] ℹ️ Using existing data from localStorage (${currentState.data.todos.length} todos)`
+      );
+    }
+  },
 };
